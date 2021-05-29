@@ -47,7 +47,7 @@ Required software
 Documentation
 ---------------------------------
 
-Here you find an online documentation: `documentation <https://axelwidmark.github.io/spiralweighing/>`__.
+Here you find an online documentation: `documentation <https://axelwidmark.github.io/SpiralWeighing/>`__.
 
 The documentation is automatically generated with shpinx, and is store in the docs folder.
 
