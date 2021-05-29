@@ -1,3 +1,8 @@
+"""
+The main class
+========================================================
+"""
+
 import math
 import numpy as np
 import pandas as pd
@@ -17,29 +22,55 @@ tf.compat.v1.disable_eager_execution()
 class spiral_weighing():
     
     ''' This is the main class and contains the method of inference,
-        including the minimisation algorithm.
+        including the minimisation algorithm. In this class, any tensorflow
+        quantity or function begins with an upper-case letter. Other
+        quantities begin with a lower-case letter.
         
-        The physical quantities are formulated in units listed below.   
-        distance:   (pc)   
-        time:       (year) 
-        mass:       (solar mass)
+        The physical quantities are formulated of units:   
+        distance (pc),   
+        time (year),
+        mass (solar mass).
+    
+        The free parameters of the method are formulated in terms of
+        the tensorflow quantities Vector and Params, which are related
+        via sigmoid functions. The reason is that while all the elements
+        of the Params quantity are bounded on both sides, the Vector
+        elements are unbounded. With this formulation, we avoid
+        problems associated with the minimisation algorithm hitting
+        hard boundaries in its free parameters.
+    
+        :param coords:              A 2d array, of dimension (N,2), containing the (Z,W) parameters of the data sample.
+                                    This should be provided in units (pc) and (km/s). The velocity is then transformed
+                                    to units (pc/yr). The velocity coordinate (W) can be supplied with the Sun's
+                                    vertical velocity already corrected for.
+        :type coords:               float
+        :param zbins:               Vector with the bin-edges of the 2d data histogram's bins in Z
+        :type zbins:                float
+        :param wbins:               Vector with the bin-edges of the 2d data histogram's bins in w
+        :type wbins:                float
+        :param num_Gs:              The number of Gaussians in the bulk density Gaussian mixture model
+        :type num_Gs:               int
+        :param rho_scales:          A list of scale heights for the respective matter density components.
+        :type rho_scales:           float
+        :param interp_resolution:   The number of interpolations points in height for numerical evaluations of the
+                                    vertical oscillation angle.
+        :type interp_resolution:    int
+        :param mask_params:         List of number that determine the outer mask function M (see paper for details).
+        :type mask_params:          float
+        :param pixels_smear:        Number of pixels to smear over when producing smeared versions of 2d histograms.
+        :type pixels_smear:         float
+        :param pixels_smear:        Number of pixels to smear over when producing smeared versions of 2d histograms.
+        :type pixels_smear:         float
+        :param one_arm:             Specifies one arm, e.g. if a symmetric spiral component is allowed.
+        :type one_arm:              bool
+        :param mask_z:              Mask in Z, in units of pc.
+        :type mask_z:               float
+    
         '''
     
-    def __init__(self, coords=None, true_potential=None, zbins=np.linspace(-1e3, 1e3, 101), \
+    def __init__(self, coords, zbins=np.linspace(-1e3, 1e3, 101), \
             wbins=np.linspace(-60., 60., 121), num_Gs=6, rho_scales=[100., 200., 400., 800.], interp_resolution=1000, \
-            mask_params=[[300., 800.], [20., 44.], [2.5e-1, 1e-1]], pixels_smear=2., one_arm=True, mask_z=None):
-        
-        ''' This is the initialisation of the class, where (z,w) coordinates of the data sample
-            is provided.
-            
-            :param coords:      A 2d array, of dimension (N,2), containing the (Z,W) parameters of the data sample.
-                                This should be provided in units (pc) and (km/s). The velocity is then transformed
-                                to units (pc/yr).
-            :type coords:       float
-            
-        
-            '''
-        
+            mask_params=[[300., 800.], [20., 44.], [2.5e-1, 1e-1]], pixels_smear=2., one_arm=True, mask_z=None):        
         # algorithm is run in units: pc, year, solar mass
         self.kms_over_pcyear = 1.022e-6  # (km/s) / (pc/year)
         self.four_pi_G = 4.*pi*4.49e-15 # in units (pc/year)^2 pc (solar mass)^(-1)
@@ -56,11 +87,10 @@ class spiral_weighing():
         self.Zero = tf.constant(0., dtype=tf.float64)
         
         self.interp_resolution = interp_resolution
-        self.Angle_anchor_points = tf.constant(mask_params[0], dtype=tf.float64) # this is in units pc, the point where phi = phi_init
+        self.Angle_anchor_points = tf.constant(mask_params[0], dtype=tf.float64)
         
         self.Coords = tf.constant(coords, dtype=tf.float64)
         self.num_stars = len(coords)
-        self.true_potential = true_potential
         self.Zbins = tf.constant(self.zbins, dtype=tf.float64)
         self.Wbins = tf.constant(self.wbins, dtype=tf.float64)
         self.Zvec = tf.constant(self.zvec, dtype=tf.float64)
@@ -68,9 +98,10 @@ class spiral_weighing():
         self.num_Gs = num_Gs
         self.num_sechs = len(rho_scales)
         self.Rho_scales = tf.constant(rho_scales, dtype=tf.float64)
-        self.hist2d,xedges,yedges = np.histogram2d(coords[:,0], coords[:,1], bins=[len(self.zbins)-1, len(self.wbins)-1], range=[[self.zbins[0],self.zbins[-1]],[self.wbins[0],self.wbins[-1]]])
-        #self.hist2d /= len(coords)
-        xx,yy = np.meshgrid(np.linspace(-(len(self.wbins)-1.)/2., (len(self.wbins)-1.)/2., len(self.wbins)), np.linspace(-(len(self.zbins)-1.)/2., (len(self.zbins)-1.)/2., len(self.zbins)))
+        self.hist2d,xedges,yedges = np.histogram2d(coords[:,0], coords[:,1], bins=[len(self.zbins)-1, len(self.wbins)-1],   \
+             range=[[self.zbins[0],self.zbins[-1]],[self.wbins[0],self.wbins[-1]]])
+        xx,yy = np.meshgrid(np.linspace(-(len(self.wbins)-1.)/2., (len(self.wbins)-1.)/2., len(self.wbins)), \
+            np.linspace(-(len(self.zbins)-1.)/2., (len(self.zbins)-1.)/2., len(self.zbins)))
         self.hist_smear = np.exp(-(xx**2+yy**2)/(2.*pixels_smear**2))
         self.hist_smear /= np.sum(self.hist_smear)
         self.hist2d_convolved = convolve2d(self.hist2d, self.hist_smear, 'same')
@@ -96,26 +127,67 @@ class spiral_weighing():
         self.Z_max = tf.constant(1.5*mask_params[0][1], dtype=tf.float64)
         self.W_max = tf.constant(mask_params[1][1], dtype=tf.float64)
         self.one_arm = one_arm
+        return
     
     
     # GRAVITATIONAL POTENTIAL
     @tf.function # return in units of pc^2/yr^2
     def Phi_of_z(self, z, Rho_params, Z_sun):
-        Res_km2s2 = 2/37. * tf.reduce_sum( Rho_params[:,None]*tf.math.log(tf.cosh((z[None,:]+Z_sun[None,None])/self.Rho_scales[:,None]))*   \
+        ''' Gravitational potential as a function of z.
+            
+            :param z:           Height with respect to the Sun.
+            :type z:            tf.float64
+            :param Rho_params:  Mid-plane matter densities.
+            :type Rho_params:   tf.float64
+            :param Z_sun:       Height of the Sun w.r.t the Galactic mid-plane.
+            :type Z_sun:        tf.float64
+        
+            :return:            Gravitational potential.
+            :rtype:             tf.float64
+            '''
+        Res_km2s2 = self.four_pi_G/self.kms_over_pcyear**2 * \
+            tf.reduce_sum( Rho_params[:,None]*tf.math.log(tf.cosh((z[None,:]+Z_sun[None,None])/self.Rho_scales[:,None]))*   \
             tf.pow(self.Rho_scales[:,None], 2), axis=0)
         return self.kms_over_pcyear**2 * Res_km2s2
     
     
-    # GRAVITATIONAL POTENTIAL
+    # GRAVITATIONAL ACCELERATION
     @tf.function # return in units of pc/yr^2
     def Acc_of_z(self, z, Rho_params, Z_sun):
-        Res_kms2 = 2/37. * tf.reduce_sum( Rho_params[:,None]*tf.tanh((z[None,:]+Z_sun[None,None])/self.Rho_scales[:,None])*   \
+        ''' Gravitational acceleration as a function of z.
+            
+            :param z:           Height with respect to the Sun.
+            :type z:            tf.float64
+            :param Rho_params:  Mid-plane matter densities.
+            :type Rho_params:   tf.float64
+            :param Z_sun:       Height of the Sun w.r.t the Galactic mid-plane.
+            :type Z_sun:        tf.float64
+        
+            :return:            Gravitational acceleration.
+            :rtype:             tf.float64
+            '''
+        Res_kms2 = self.four_pi_G/self.kms_over_pcyear**2 * \
+            tf.reduce_sum( Rho_params[:,None]*tf.tanh((z[None,:]+Z_sun[None,None])/self.Rho_scales[:,None])*   \
             self.Rho_scales[:,None], axis=0)
         return self.kms_over_pcyear/self.second_over_yr * Res_km2s2
     
     
     @tf.function
     def Time_between_heights(self, z_0, z_1, Z_max, Rho_params):
+        ''' Time in years for a stars to travel between two heights.
+            
+            :param z_0:         Starting height with respect to the mid-plane.
+            :type z_0:          tf.float64
+            :param z_0:         Final height with respect to the mid-plane.
+            :type z_0:          tf.float64
+            :param Z_max:       Maximum height of a star given its vertical energy.
+            :type Z_max:        tf.float64
+            :param Rho_params:  Mid-plane matter densities.
+            :type Rho_params:   tf.float64
+        
+            :return:            Time between heights (yr).
+            :rtype:             tf.float64
+            '''
         Ez = Phi_of_z(Z_max, Rho_params, self.Zero)
         Z_diff = (z_1-z_0)/self.interp_resolution
         Z_temp_vec = tf.linspace(z_0+Z_diff/2., z_0-Z_diff/2., self.interp_resolution-1)
@@ -126,6 +198,15 @@ class spiral_weighing():
     # make set of params add up to one
     @tf.function
     def Add_to_1(self, zs):
+        ''' This function takes a (N-1) parameters and transforms them to
+            N parameters that add to unity.
+            
+            :param zs:      Input parameters of arbitrary length (N-1).
+            :type z_0:      tf.float64
+        
+            :return:        Array of length N.
+            :rtype:         tf.float64
+            '''
         fac = tf.concat([1-zs, tf.constant([1], tf.float64)], 0)
         zsb = tf.concat([tf.constant([1], tf.float64), zs], 0)
         return tf.math.cumprod(zsb) * fac
@@ -133,6 +214,19 @@ class spiral_weighing():
     
     @tf.function
     def Bulk_density(self, Params_bulk, Z_sun, W_sun):
+        ''' This gives the bulk density distribution,
+            given the bulk density parameters.
+            
+            :param Params_bulk: Bulk parameters.
+            :type Params_bulk:  tf.float64
+            :param Z_sun:       Height of the Sun w.r.t the Galactic mid-plane.
+            :type Z_sun:        tf.float64
+            :param W_sun:       Vertical velocity of the Sun
+            :type W_sun:        tf.float64
+        
+            :return:            Bulk density in the shape of the 2d data histogram.
+            :rtype:             tf.float64
+            '''
         Weights = Params_bulk[0:self.num_Gs]
         Std_z = Params_bulk[self.num_Gs:2*self.num_Gs]
         Std_w = Params_bulk[2*self.num_Gs:3*self.num_Gs]
@@ -147,6 +241,16 @@ class spiral_weighing():
     # RELATIVE DENSITY DUE TO SPIRAL
     @tf.function
     def Spiral_rel_density(self, Params_spiral):
+        ''' This gives the relative phase space perturbation
+            of the phase-space spiral,
+            given the spiral density parameters.
+            
+            :param Params_spiral: Spiral parameters.
+            :type Params_spiral:  tf.float64
+        
+            :return:            Spiral density in the shape of the 2d data histogram.
+            :rtype:             tf.float64
+            '''
         # these are the free parameters that affect the spiral
         Rho_params = Params_spiral[0:self.num_sechs]
         Z_sun = Params_spiral[self.num_sechs] # in units pc
@@ -230,6 +334,15 @@ class spiral_weighing():
     # LIKELIHOOD USING ONLY RELATIVE STELLAR DENSITIES
     @tf.function
     def Log_likelihood_bulk(self, Params):
+        ''' Returns the logarithm of the likelihood,
+            when fitting only the bulk.
+            
+            :param Params:  Vector of free parameters.
+            :type Params:   tf.float64
+        
+            :return:        Log likelihood value
+            :rtype:             tf.float64
+            '''
         Params_spiral = Params[0:self.num_sechs+6]
         Params_bulk = Params[self.num_sechs+6:self.num_sechs+6+3*self.num_Gs]
         Z_sun = Params_spiral[self.num_sechs] # in units pc
@@ -245,6 +358,14 @@ class spiral_weighing():
     # LIKELIHOOD USING ONLY RELATIVE STELLAR DENSITIES
     @tf.function
     def Log_likelihood_full(self, Params):
+        ''' Returns the logarithm of the full likelihood.
+            
+            :param Params:  Vector of free parameters.
+            :type Params:   tf.float64
+        
+            :return:        Log likelihood value
+            :rtype:         tf.float64
+            '''
         Params_spiral = Params[0:self.num_sechs+6]
         Params_bulk = Params[self.num_sechs+6:self.num_sechs+6+3*self.num_Gs]
         Z_sun = Params_spiral[self.num_sechs] # in units pc
@@ -258,6 +379,16 @@ class spiral_weighing():
     
     
     def get_grids(self, vector=None):
+        ''' Returns 2d grids with the following quantity: relative density of the spiral,
+            time period, vertical energy.
+            Output is in the form of numpy arrays (not tensorflow objects).
+            
+            :param vector: Vector of free parameters.
+            :type vector:  float
+        
+            :return:        Three 2d arrays (rel dens. of spiral, time period, vertical energy)
+            :rtype:         float
+            '''
         if vector is None:
             vector = self.randomize_vector()
         Vector = tf.Variable(vector, dtype=tf.float64)
@@ -270,6 +401,15 @@ class spiral_weighing():
     
     
     def randomize_vector(self, full=False):
+        ''' Returns a random but reasonable guess for the vector
+            of free parameters.
+            
+            :param full: If true, vector includes bulk density parameters.
+            :type full:  bool
+            
+            :return:        Vector of parameters
+            :rtype:         float
+            '''
         if full:
             res = np.concatenate( [np.random.normal(loc=-2., scale=.3, size=self.num_sechs), \
                 np.random.normal(loc=0., scale=.5, size=6), np.random.normal(loc=0., scale=1.0, size=3*self.num_Gs)] )
@@ -280,6 +420,16 @@ class spiral_weighing():
     
     
     def get_grids_full(self, vector=None):
+        ''' Returns 2d grids with the following quantity: relative density of the spiral,
+            time period, vertical energy.
+            Output is in the form of numpy arrays (not tensorflow objects).
+            
+            :param vector: Vector of free parameters.
+            :type vector:  float
+        
+            :return:        Three 2d arrays (rel dens. of spiral, time period, vertical energy)
+            :rtype:         float
+            '''
         if vector is None:
             vector = self.randomize_vector(full=True)
         Vector = tf.Variable(vector, dtype=tf.float64)
@@ -299,6 +449,15 @@ class spiral_weighing():
     
     
     def get_potential(self, vector=None):
+        ''' Gravitational potential as a function of z,
+            returned as numpy vectors.
+
+            :param vector: Vector of free parameters.
+            :type vector:  float
+        
+            :return:        Vector in height (z) and gravitational potential values.
+            :rtype:         float
+            '''
         Vector = tf.Variable(vector, dtype=tf.float64)
         Params_spiral = self.Vector_2_params_spiral(Vector)
         Rho_params = Params_spiral[0:self.num_sechs]
@@ -312,6 +471,15 @@ class spiral_weighing():
     
     @tf.function
     def Vector_2_params_spiral(self, Vector):
+        ''' Transforms a Vector to spiral parameters via the sigmoid function.
+            See class description for a more detailed explanation.
+
+            :param vector: Vector of free parameters.
+            :type vector:  tf.float64
+        
+            :return:        Free spiral parameters.
+            :rtype:         tf.float64
+            '''
         Prior_range = tf.constant(np.concatenate((self.num_sechs*[[0., 0.2]], [[-50., 50.], \
             [-20.*self.kms_over_pcyear, 20.*self.kms_over_pcyear], [0., 4.], [0., 2.], [0., 1.], [0., 1.]])), dtype=tf.float64)
         Params_spiral = Prior_range[:,0] + (Prior_range[:,1]-Prior_range[:,0]) * tf.sigmoid(Vector[0:self.num_sechs+6])
@@ -319,6 +487,15 @@ class spiral_weighing():
         
     @tf.function
     def Vector_2_params_full(self, Vector):
+        ''' Transforms a Vector to the free parameters via the sigmoid function.
+            See class description for a more detailed explanation.
+
+            :param vector: Vector of free parameters.
+            :type vector:  tf.float64
+        
+            :return:        Free parameters.
+            :rtype:         tf.float64
+            '''
         Prior_range = tf.constant(np.concatenate((self.num_sechs*[[0., 0.2]], [[-50., 50.], \
             [-20.*self.kms_over_pcyear, 20.*self.kms_over_pcyear], [0., 4.], [-4., 4.], [0., 1.], [0., 1.]])), dtype=tf.float64)
         Params_spiral = Prior_range[:,0] + (Prior_range[:,1]-Prior_range[:,0]) * tf.sigmoid(Vector[0:self.num_sechs+6])
@@ -332,6 +509,24 @@ class spiral_weighing():
     
     # minimize
     def minimize_spiral_likelihood(self, p0=None, number_of_iterations=1000, print_gap=20, numTFTthreads=0, learning_rate=1e-2, fixed_sun=True):
+        ''' Minimises the likelihood when only varying the spiral parameters.
+
+            :param p0:                      Initial guess for the vector.
+            :type p0:                       float
+            :param number_of_iterations:    Number of iterations of the minimisation algorithm.
+            :type number_of_iterations:     int
+            :param print_gap:               Number of iterations between result printouts.
+            :type print_gap:                int
+            :param numTFTthreads:           Number of tensorflow threads. If zero, tensorflow decides itself.
+            :type numTFTthreads:            int
+            :param learning_rate:           Learning rate of the AdamOptimizer.
+            :type learning_rate:            float
+            :param fixed_sun:               Whether or not the height of the Sun is fixed or allowed to be a free parameter.
+            :type fixed_sun:                bool
+        
+            :return:        Array of log likelihood values, and array of vectors.
+            :rtype:         float
+            '''
         if p0 is None:
             vector = self.randomize_vector()
         else:
@@ -377,6 +572,22 @@ class spiral_weighing():
     
     # minimize
     def minimize_full_likelihood(self, p0=None, number_of_iterations=20000, print_gap=20, numTFTthreads=0, learning_rate=1e-2):
+        ''' Minimises the full likelihood, i.e. both bulk and spiral are free.
+
+            :param p0:                      Initial guess for the vector.
+            :type p0:                       float
+            :param number_of_iterations:    Number of iterations of the minimisation algorithm.
+            :type number_of_iterations:     int
+            :param print_gap:               Number of iterations between result printouts.
+            :type print_gap:                int
+            :param numTFTthreads:           Number of tensorflow threads. If zero, tensorflow decides itself.
+            :type numTFTthreads:            int
+            :param learning_rate:           Learning rate of the AdamOptimizer.
+            :type learning_rate:            float
+        
+            :return:        Array of log likelihood values, and array of vectors.
+            :rtype:         float
+            '''
         if p0 is None:
             vector = self.randomize_vector(full=True)
         else:
@@ -404,7 +615,27 @@ class spiral_weighing():
     
     
     # minimize
-    def minimize_bulk_likelihood(self, p0=None, number_of_iterations=20000, print_gap=20, numTFTthreads=0, learning_rate=1e-2, fixed_solar_params=None):
+    def minimize_bulk_likelihood(self, p0=None, number_of_iterations=20000, print_gap=20,   \
+            numTFTthreads=0, learning_rate=1e-2, fixed_solar_params=None):
+        ''' Minimises the likelihood when only varying the bulk density parameters.
+
+            :param p0:                      Initial guess for the vector.
+            :type p0:                       float
+            :param number_of_iterations:    Number of iterations of the minimisation algorithm.
+            :type number_of_iterations:     int
+            :param print_gap:               Number of iterations between result printouts.
+            :type print_gap:                int
+            :param numTFTthreads:           Number of tensorflow threads. If zero, tensorflow decides itself.
+            :type numTFTthreads:            int
+            :param learning_rate:           Learning rate of the AdamOptimizer.
+            :type learning_rate:            float
+            :param fixed_solar_params:      Tuple containing solar height and solar velocity.
+            :type fixed_solar_params:       float
+            
+        
+            :return:        Array of log likelihood values, and array of vectors.
+            :rtype:         float
+            '''
         if p0 is None:
             vector = self.randomize_vector(full=True)
         else:
@@ -438,39 +669,48 @@ class spiral_weighing():
         return minusLogPosterior, vector
     
     
-    def spiral_hessian(self, vector):
-        VectorA = tf.Variable(vector[0:self.num_sechs], dtype=tf.float64)
-        VectorB = tf.constant(vector[self.num_sechs:self.num_sechs+2], dtype=tf.float64)
-        VectorC = tf.Variable(vector[self.num_sechs+2:self.num_sechs+6], dtype=tf.float64)
-        VectorD = tf.constant(vector[self.num_sechs+6:self.num_sechs+6+3*self.num_Gs], dtype=tf.float64)
-        Vector = tf.concat([VectorA, VectorB, VectorC, VectorD], axis=0)
-        #SubVector = tf.concat([VectorA, VectorC], axis=0)
-        Params_spiral = self.Vector_2_params_spiral(Vector)
-        Params = self.Vector_2_params_full(Vector)
-        MinusLogPosterior = -self.Log_likelihood_full(tf.concat([Params_spiral,     \
-            Params[self.num_sechs+6:self.num_sechs+6+3*self.num_Gs]], axis=0))
-        #Hessian = tf.hessians(MinusLogPosterior, Params_spiral)
-        #print('just grad.')
-        #Hessian = tf.gradients(MinusLogPosterior, Params_spiral)
-        print('grad. form.')
-        Hessian = tf.gradients( tf.gradients(MinusLogPosterior, Params_spiral), Params_spiral )
-        session_conf = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=numTFThreads, inter_op_parallelism_threads=numTFThreads)
-        with tf.compat.v1.Session(config=session_conf) as sess:
-            sess.run( tf.compat.v1.global_variables_initializer() )
-            hessian, minusLogPosterior = sess.run( [Hessian, MinusLogPosterior] )
-        return hessian, minusLogPosterior
+    #def spiral_hessian(self, vector):
+    #    VectorA = tf.Variable(vector[0:self.num_sechs], dtype=tf.float64)
+    #    VectorB = tf.constant(vector[self.num_sechs:self.num_sechs+2], dtype=tf.float64)
+    #    VectorC = tf.Variable(vector[self.num_sechs+2:self.num_sechs+6], dtype=tf.float64)
+    #    VectorD = tf.constant(vector[self.num_sechs+6:self.num_sechs+6+3*self.num_Gs], dtype=tf.float64)
+    #    Vector = tf.concat([VectorA, VectorB, VectorC, VectorD], axis=0)
+    #    #SubVector = tf.concat([VectorA, VectorC], axis=0)
+    #    Params_spiral = self.Vector_2_params_spiral(Vector)
+    #    Params = self.Vector_2_params_full(Vector)
+    #    MinusLogPosterior = -self.Log_likelihood_full(tf.concat([Params_spiral,     \
+    #        Params[self.num_sechs+6:self.num_sechs+6+3*self.num_Gs]], axis=0))
+    #    #Hessian = tf.hessians(MinusLogPosterior, Params_spiral)
+    #    #print('just grad.')
+    #    #Hessian = tf.gradients(MinusLogPosterior, Params_spiral)
+    #    print('grad. form.')
+    #    Hessian = tf.gradients( tf.gradients(MinusLogPosterior, Params_spiral), Params_spiral )
+    #    session_conf = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=numTFThreads, inter_op_parallelism_threads=numTFThreads)
+    #    with tf.compat.v1.Session(config=session_conf) as sess:
+    #        sess.run( tf.compat.v1.global_variables_initializer() )
+    #        hessian, minusLogPosterior = sess.run( [Hessian, MinusLogPosterior] )
+    #    return hessian, minusLogPosterior
     
     
-    # takes a chain and returns a stepsize vector
-    def adjust_stepsize(self, samples):
-        res = 1e-1 * np.std(samples, axis=0)
-        if np.sum(res)==0.:
-            res = self.get_stepsize_guess()
-        return res
+    ## takes a chain and returns a stepsize vector
+    #def adjust_stepsize(self, samples):
+    #    res = 1e-1 * np.std(samples, axis=0)
+    #    if np.sum(res)==0.:
+    #        res = self.get_stepsize_guess()
+    #    return res
     
     
     # get time
     def get_time(self, vector):
+        ''' Returns the time since the beginning of the perturbation that gave rise to the spiral.
+
+            :param vector:  Vector.
+            :type vector:   float
+            
+        
+            :return:        Time in years.
+            :rtype:         float
+            '''
         Vector = tf.constant(vector, dtype=tf.float64)
         Params = self.Vector_2_params_full(Vector)
         Rho_params = Params[0:self.num_sechs]
@@ -492,50 +732,50 @@ class spiral_weighing():
             t_pert = sess.run(T_pert)
         return t_pert
     
-    # run MCMC chain
-    def run_HMC_spiral(self, p0=None, steps=1e4, burnin_steps=0, num_adaptation_steps=0, num_leapfrog_steps=3, \
-                step_size_start=None, num_steps_between_results=0, fixed_sun=True):
-        if p0 is None:
-            vector = self.randomize_vector()
-        else:
-            vector = p0
-        VectorB = tf.constant(vector[self.num_sechs:self.num_sechs+2], dtype=tf.float64)
-        VectorD = tf.constant(vector[self.num_sechs+6:self.num_sechs+6+3*self.num_Gs], dtype=tf.float64)
-        sub_vector = np.concatenate([vector[0:self.num_sechs], vector[self.num_sechs+2:self.num_sechs+6]])
-        @tf.function
-        def the_function(Params):
-            VectorA = Params[0:self.num_sechs]
-            VectorC = Params[self.num_sechs:self.num_sechs+4]
-            Vector = tf.concat([VectorA, VectorB, VectorC, VectorD], axis=0)
-            Prim_params = self.Vector_2_params_full(Vector)
-            return self.Log_likelihood_full(Prim_params)
-        num_results = int(steps)
-        num_burnin_steps = int(burnin_steps)
-        adaptive_hmc = tfp.mcmc.DualAveragingStepSizeAdaptation(
-            inner_kernel=tfp.mcmc.HamiltonianMonteCarlo(
-                target_log_prob_fn=the_function,
-                num_leapfrog_steps=num_leapfrog_steps,
-                step_size=step_size_start),
-            num_adaptation_steps=int(num_adaptation_steps))
-        @tf.function
-        def run_chain():
-            # Run the chain (with burn-in).
-            samples, [is_accepted, step_size, log_prob] = tfp.mcmc.sample_chain(
-                num_results=num_results,
-                num_burnin_steps=num_burnin_steps,
-                current_state=sub_vector,
-                kernel=adaptive_hmc,
-                num_steps_between_results=num_steps_between_results,
-                trace_fn=lambda _, pkr: [pkr.inner_results.is_accepted,     \
-                    pkr.inner_results.accepted_results.step_size,   \
-                    pkr.inner_results.accepted_results.target_log_prob])
-            is_accepted = tf.reduce_mean(tf.cast(is_accepted, dtype=tf.float64))
-            return samples, is_accepted, step_size, log_prob
-        Samples, Is_accepted, Step_size, Log_prob = run_chain()
-        with tf.compat.v1.Session() as sess:
-            samples, is_accepted, step_size, log_prob = sess.run([Samples, Is_accepted, Step_size, Log_prob])
-        sssamples = []
-        for ss in samples:
-            sssamples.append( np.concatenate( (ss[0:self.num_sechs], vector[self.num_sechs:self.num_sechs+2], \
-                 ss[self.num_sechs:self.num_sechs+4], vector[self.num_sechs+6:self.num_sechs+6+3*self.num_Gs]) ) )
-        return np.array(sssamples), log_prob, step_size, is_accepted
+    ## run MCMC chain
+    #def run_HMC_spiral(self, p0=None, steps=1e4, burnin_steps=0, num_adaptation_steps=0, num_leapfrog_steps=3, \
+    #            step_size_start=None, num_steps_between_results=0, fixed_sun=True):
+    #    if p0 is None:
+    #        vector = self.randomize_vector()
+    #    else:
+    #        vector = p0
+    #    VectorB = tf.constant(vector[self.num_sechs:self.num_sechs+2], dtype=tf.float64)
+    #    VectorD = tf.constant(vector[self.num_sechs+6:self.num_sechs+6+3*self.num_Gs], dtype=tf.float64)
+    #    sub_vector = np.concatenate([vector[0:self.num_sechs], vector[self.num_sechs+2:self.num_sechs+6]])
+    #    @tf.function
+    #    def the_function(Params):
+    #        VectorA = Params[0:self.num_sechs]
+    #        VectorC = Params[self.num_sechs:self.num_sechs+4]
+    #        Vector = tf.concat([VectorA, VectorB, VectorC, VectorD], axis=0)
+    #        Prim_params = self.Vector_2_params_full(Vector)
+    #        return self.Log_likelihood_full(Prim_params)
+    #    num_results = int(steps)
+    #    num_burnin_steps = int(burnin_steps)
+    #    adaptive_hmc = tfp.mcmc.DualAveragingStepSizeAdaptation(
+    #        inner_kernel=tfp.mcmc.HamiltonianMonteCarlo(
+    #            target_log_prob_fn=the_function,
+    #            num_leapfrog_steps=num_leapfrog_steps,
+    #            step_size=step_size_start),
+    #        num_adaptation_steps=int(num_adaptation_steps))
+    #    @tf.function
+    #    def run_chain():
+    #        # Run the chain (with burn-in).
+    #        samples, [is_accepted, step_size, log_prob] = tfp.mcmc.sample_chain(
+    #            num_results=num_results,
+    #            num_burnin_steps=num_burnin_steps,
+    #            current_state=sub_vector,
+    #            kernel=adaptive_hmc,
+    #            num_steps_between_results=num_steps_between_results,
+    #            trace_fn=lambda _, pkr: [pkr.inner_results.is_accepted,     \
+    #                pkr.inner_results.accepted_results.step_size,   \
+    #                pkr.inner_results.accepted_results.target_log_prob])
+    #        is_accepted = tf.reduce_mean(tf.cast(is_accepted, dtype=tf.float64))
+    #        return samples, is_accepted, step_size, log_prob
+    #    Samples, Is_accepted, Step_size, Log_prob = run_chain()
+    #    with tf.compat.v1.Session() as sess:
+    #        samples, is_accepted, step_size, log_prob = sess.run([Samples, Is_accepted, Step_size, Log_prob])
+    #    sssamples = []
+    #    for ss in samples:
+    #        sssamples.append( np.concatenate( (ss[0:self.num_sechs], vector[self.num_sechs:self.num_sechs+2], \
+    #             ss[self.num_sechs:self.num_sechs+4], vector[self.num_sechs+6:self.num_sechs+6+3*self.num_Gs]) ) )
+    #    return np.array(sssamples), log_prob, step_size, is_accepted
