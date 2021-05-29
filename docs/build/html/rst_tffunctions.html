@@ -1,0 +1,506 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>The main class &#8212; Spiral weighing 28/05/2021 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Introduction" href="intro.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <span class="target" id="module-TfFunctions"></span><section id="the-main-class">
+<h1>The main class<a class="headerlink" href="#the-main-class" title="Permalink to this headline">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="TfFunctions.spiral_weighing">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">TfFunctions.</span></span><span class="sig-name descname"><span class="pre">spiral_weighing</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zbins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">numpy.linspace</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wbins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">numpy.linspace</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_Gs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho_scales</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[100.0,</span> <span class="pre">200.0,</span> <span class="pre">400.0,</span> <span class="pre">800.0]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interp_resolution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask_params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[[300.0,</span> <span class="pre">800.0],</span> <span class="pre">[20.0,</span> <span class="pre">44.0],</span> <span class="pre">[0.25,</span> <span class="pre">0.1]]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pixels_smear</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">one_arm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask_z</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TfFunctions.spiral_weighing" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>This is the main class and contains the method of inference,
+including the minimisation algorithm. In this class, any tensorflow
+quantity or function begins with an upper-case letter. Other
+quantities begin with a lower-case letter.</p>
+<p>The physical quantities are formulated of units:   
+distance (pc),   
+time (year),
+mass (solar mass).</p>
+<p>The free parameters of the method are formulated in terms of
+the tensorflow quantities Vector and Params, which are related
+via sigmoid functions. The reason is that while all the elements
+of the Params quantity are bounded on both sides, the Vector
+elements are unbounded. With this formulation, we avoid
+problems associated with the minimisation algorithm hitting
+hard boundaries in its free parameters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>coords</strong> (<em>float</em>) – A 2d array, of dimension (N,2), containing the (Z,W) parameters of the data sample.
+This should be provided in units (pc) and (km/s). The velocity is then transformed
+to units (pc/yr). The velocity coordinate (W) can be supplied with the Sun’s
+vertical velocity already corrected for.</p></li>
+<li><p><strong>zbins</strong> (<em>float</em>) – Vector with the bin-edges of the 2d data histogram’s bins in Z</p></li>
+<li><p><strong>wbins</strong> (<em>float</em>) – Vector with the bin-edges of the 2d data histogram’s bins in w</p></li>
+<li><p><strong>num_Gs</strong> (<em>int</em>) – The number of Gaussians in the bulk density Gaussian mixture model</p></li>
+<li><p><strong>rho_scales</strong> (<em>float</em>) – A list of scale heights for the respective matter density components.</p></li>
+<li><p><strong>interp_resolution</strong> (<em>int</em>) – The number of interpolations points in height for numerical evaluations of the
+vertical oscillation angle.</p></li>
+<li><p><strong>mask_params</strong> (<em>float</em>) – List of number that determine the outer mask function M (see paper for details).</p></li>
+<li><p><strong>pixels_smear</strong> (<em>float</em>) – Number of pixels to smear over when producing smeared versions of 2d histograms.</p></li>
+<li><p><strong>pixels_smear</strong> – Number of pixels to smear over when producing smeared versions of 2d histograms.</p></li>
+<li><p><strong>one_arm</strong> (<em>bool</em>) – Specifies one arm, e.g. if a symmetric spiral component is allowed.</p></li>
+<li><p><strong>mask_z</strong> (<em>float</em>) – Mask in Z, in units of pc.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="TfFunctions.spiral_weighing.Acc_of_z">
+<span class="sig-name descname"><span class="pre">Acc_of_z</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">z</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Rho_params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Z_sun</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TfFunctions.spiral_weighing.Acc_of_z" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gravitational acceleration as a function of z.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>z</strong> (<em>tf.float64</em>) – Height with respect to the Sun.</p></li>
+<li><p><strong>Rho_params</strong> (<em>tf.float64</em>) – Mid-plane matter densities.</p></li>
+<li><p><strong>Z_sun</strong> (<em>tf.float64</em>) – Height of the Sun w.r.t the Galactic mid-plane.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Gravitational acceleration.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tf.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="TfFunctions.spiral_weighing.Add_to_1">
+<span class="sig-name descname"><span class="pre">Add_to_1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TfFunctions.spiral_weighing.Add_to_1" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function takes a (N-1) parameters and transforms them to
+N parameters that add to unity.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>zs</strong> – Input parameters of arbitrary length (N-1).</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Array of length N.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tf.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="TfFunctions.spiral_weighing.Bulk_density">
+<span class="sig-name descname"><span class="pre">Bulk_density</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Params_bulk</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Z_sun</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">W_sun</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TfFunctions.spiral_weighing.Bulk_density" title="Permalink to this definition">¶</a></dt>
+<dd><p>This gives the bulk density distribution,
+given the bulk density parameters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Params_bulk</strong> (<em>tf.float64</em>) – Bulk parameters.</p></li>
+<li><p><strong>Z_sun</strong> (<em>tf.float64</em>) – Height of the Sun w.r.t the Galactic mid-plane.</p></li>
+<li><p><strong>W_sun</strong> (<em>tf.float64</em>) – Vertical velocity of the Sun</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Bulk density in the shape of the 2d data histogram.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tf.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="TfFunctions.spiral_weighing.Log_likelihood_bulk">
+<span class="sig-name descname"><span class="pre">Log_likelihood_bulk</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Params</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TfFunctions.spiral_weighing.Log_likelihood_bulk" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the logarithm of the likelihood,
+when fitting only the bulk.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>Params</strong> (<em>tf.float64</em>) – Vector of free parameters.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Log likelihood value</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tf.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="TfFunctions.spiral_weighing.Log_likelihood_full">
+<span class="sig-name descname"><span class="pre">Log_likelihood_full</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Params</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TfFunctions.spiral_weighing.Log_likelihood_full" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the logarithm of the full likelihood.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>Params</strong> (<em>tf.float64</em>) – Vector of free parameters.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Log likelihood value</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tf.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="TfFunctions.spiral_weighing.Phi_of_z">
+<span class="sig-name descname"><span class="pre">Phi_of_z</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">z</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Rho_params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Z_sun</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TfFunctions.spiral_weighing.Phi_of_z" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gravitational potential as a function of z.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>z</strong> (<em>tf.float64</em>) – Height with respect to the Sun.</p></li>
+<li><p><strong>Rho_params</strong> (<em>tf.float64</em>) – Mid-plane matter densities.</p></li>
+<li><p><strong>Z_sun</strong> (<em>tf.float64</em>) – Height of the Sun w.r.t the Galactic mid-plane.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Gravitational potential.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tf.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="TfFunctions.spiral_weighing.Spiral_rel_density">
+<span class="sig-name descname"><span class="pre">Spiral_rel_density</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Params_spiral</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TfFunctions.spiral_weighing.Spiral_rel_density" title="Permalink to this definition">¶</a></dt>
+<dd><p>This gives the relative phase space perturbation
+of the phase-space spiral,
+given the spiral density parameters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>Params_spiral</strong> (<em>tf.float64</em>) – Spiral parameters.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Spiral density in the shape of the 2d data histogram.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tf.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="TfFunctions.spiral_weighing.Time_between_heights">
+<span class="sig-name descname"><span class="pre">Time_between_heights</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">z_0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z_1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Z_max</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Rho_params</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TfFunctions.spiral_weighing.Time_between_heights" title="Permalink to this definition">¶</a></dt>
+<dd><p>Time in years for a stars to travel between two heights.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>z_0</strong> (<em>tf.float64</em>) – Starting height with respect to the mid-plane.</p></li>
+<li><p><strong>z_0</strong> – Final height with respect to the mid-plane.</p></li>
+<li><p><strong>Z_max</strong> (<em>tf.float64</em>) – Maximum height of a star given its vertical energy.</p></li>
+<li><p><strong>Rho_params</strong> (<em>tf.float64</em>) – Mid-plane matter densities.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Time between heights (yr).</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tf.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="TfFunctions.spiral_weighing.Vector_2_params_full">
+<span class="sig-name descname"><span class="pre">Vector_2_params_full</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Vector</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TfFunctions.spiral_weighing.Vector_2_params_full" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transforms a Vector to the free parameters via the sigmoid function.
+See class description for a more detailed explanation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>vector</strong> (<em>tf.float64</em>) – Vector of free parameters.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Free parameters.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tf.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="TfFunctions.spiral_weighing.Vector_2_params_spiral">
+<span class="sig-name descname"><span class="pre">Vector_2_params_spiral</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Vector</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TfFunctions.spiral_weighing.Vector_2_params_spiral" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transforms a Vector to spiral parameters via the sigmoid function.
+See class description for a more detailed explanation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>vector</strong> (<em>tf.float64</em>) – Vector of free parameters.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Free spiral parameters.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tf.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="TfFunctions.spiral_weighing.get_grids">
+<span class="sig-name descname"><span class="pre">get_grids</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vector</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TfFunctions.spiral_weighing.get_grids" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns 2d grids with the following quantity: relative density of the spiral,
+time period, vertical energy.
+Output is in the form of numpy arrays (not tensorflow objects).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>vector</strong> (<em>float</em>) – Vector of free parameters.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Three 2d arrays (rel dens. of spiral, time period, vertical energy)</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="TfFunctions.spiral_weighing.get_grids_full">
+<span class="sig-name descname"><span class="pre">get_grids_full</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vector</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TfFunctions.spiral_weighing.get_grids_full" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns 2d grids with the following quantity: relative density of the spiral,
+time period, vertical energy.
+Output is in the form of numpy arrays (not tensorflow objects).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>vector</strong> (<em>float</em>) – Vector of free parameters.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Three 2d arrays (rel dens. of spiral, time period, vertical energy)</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="TfFunctions.spiral_weighing.get_potential">
+<span class="sig-name descname"><span class="pre">get_potential</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vector</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TfFunctions.spiral_weighing.get_potential" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gravitational potential as a function of z,
+returned as numpy vectors.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>vector</strong> (<em>float</em>) – Vector of free parameters.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Vector in height (z) and gravitational potential values.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="TfFunctions.spiral_weighing.get_time">
+<span class="sig-name descname"><span class="pre">get_time</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vector</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TfFunctions.spiral_weighing.get_time" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the time since the beginning of the perturbation that gave rise to the spiral.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>vector</strong> (<em>float</em>) – Vector.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Time in years.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="TfFunctions.spiral_weighing.minimize_bulk_likelihood">
+<span class="sig-name descname"><span class="pre">minimize_bulk_likelihood</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">number_of_iterations</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">print_gap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">numTFTthreads</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">learning_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fixed_solar_params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TfFunctions.spiral_weighing.minimize_bulk_likelihood" title="Permalink to this definition">¶</a></dt>
+<dd><p>Minimises the likelihood when only varying the bulk density parameters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>p0</strong> (<em>float</em>) – Initial guess for the vector.</p></li>
+<li><p><strong>number_of_iterations</strong> (<em>int</em>) – Number of iterations of the minimisation algorithm.</p></li>
+<li><p><strong>print_gap</strong> (<em>int</em>) – Number of iterations between result printouts.</p></li>
+<li><p><strong>numTFTthreads</strong> (<em>int</em>) – Number of tensorflow threads. If zero, tensorflow decides itself.</p></li>
+<li><p><strong>learning_rate</strong> (<em>float</em>) – Learning rate of the AdamOptimizer.</p></li>
+<li><p><strong>fixed_solar_params</strong> (<em>float</em>) – Tuple containing solar height and solar velocity.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Array of log likelihood values, and array of vectors.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="TfFunctions.spiral_weighing.minimize_full_likelihood">
+<span class="sig-name descname"><span class="pre">minimize_full_likelihood</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">number_of_iterations</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">print_gap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">numTFTthreads</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">learning_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TfFunctions.spiral_weighing.minimize_full_likelihood" title="Permalink to this definition">¶</a></dt>
+<dd><p>Minimises the full likelihood, i.e. both bulk and spiral are free.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>p0</strong> (<em>float</em>) – Initial guess for the vector.</p></li>
+<li><p><strong>number_of_iterations</strong> (<em>int</em>) – Number of iterations of the minimisation algorithm.</p></li>
+<li><p><strong>print_gap</strong> (<em>int</em>) – Number of iterations between result printouts.</p></li>
+<li><p><strong>numTFTthreads</strong> (<em>int</em>) – Number of tensorflow threads. If zero, tensorflow decides itself.</p></li>
+<li><p><strong>learning_rate</strong> (<em>float</em>) – Learning rate of the AdamOptimizer.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Array of log likelihood values, and array of vectors.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="TfFunctions.spiral_weighing.minimize_spiral_likelihood">
+<span class="sig-name descname"><span class="pre">minimize_spiral_likelihood</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">number_of_iterations</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">print_gap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">numTFTthreads</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">learning_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fixed_sun</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TfFunctions.spiral_weighing.minimize_spiral_likelihood" title="Permalink to this definition">¶</a></dt>
+<dd><p>Minimises the likelihood when only varying the spiral parameters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>p0</strong> (<em>float</em>) – Initial guess for the vector.</p></li>
+<li><p><strong>number_of_iterations</strong> (<em>int</em>) – Number of iterations of the minimisation algorithm.</p></li>
+<li><p><strong>print_gap</strong> (<em>int</em>) – Number of iterations between result printouts.</p></li>
+<li><p><strong>numTFTthreads</strong> (<em>int</em>) – Number of tensorflow threads. If zero, tensorflow decides itself.</p></li>
+<li><p><strong>learning_rate</strong> (<em>float</em>) – Learning rate of the AdamOptimizer.</p></li>
+<li><p><strong>fixed_sun</strong> (<em>bool</em>) – Whether or not the height of the Sun is fixed or allowed to be a free parameter.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Array of log likelihood values, and array of vectors.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="TfFunctions.spiral_weighing.randomize_vector">
+<span class="sig-name descname"><span class="pre">randomize_vector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">full</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TfFunctions.spiral_weighing.randomize_vector" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a random but reasonable guess for the vector
+of free parameters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>full</strong> (<em>bool</em>) – If true, vector includes bulk density parameters.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Vector of parameters</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Spiral weighing</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">The main class</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="intro.html" title="previous chapter">Introduction</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Axel Widmark.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.0.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/rst_tffunctions.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
