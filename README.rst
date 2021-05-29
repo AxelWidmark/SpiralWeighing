@@ -23,8 +23,8 @@ Use **git clone** to download the software:
 
     git clone https://github.com/axelwidmark/spiralweighing
 
-There is two code files, called :py:mod:`TfFunctions.py` and :py:mod:`example_minimisation.py`.
-The former contains the main class :py:class:`spiral_weighing`, which contains all the
+There are two code files, called TfFunctions.py and example_minimisation.py.
+The former contains the main class spiral_weighing, which contains all the
 main functions of our method of inference. The latter python file contains an example
 code snippet that demonstrates how to use it.
 
