@@ -5,7 +5,8 @@ Welcome!
 
 This GitHub repo is dedicated to code used to weigh the Galactic disk,
 as in the following papers on arXiv:
-`Paper I <https://arxiv.org/abs/2102.08955>`__.
+`Paper I <https://arxiv.org/abs/2102.08955>`__,
+`Paper II <https://arxiv.org/abs/2105.14030>`__.
 
 If you have any questions, don't hesitate to send an email:
 `Axel Widmark <axel.widmark@nbi.ku.dk>`__.
